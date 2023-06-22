@@ -44,7 +44,7 @@ class MySequential(nn.Module):
     def __init__(self, *args):
         super().__init__()
         for idx, module in enumerate(args):
-            self.add_module(str(idx), module)
+            self.add_module(str(idx), module) # layer_name be not the same, like parameters str.
 
     def forward(self, X):
         for module in self.children():
