@@ -5,6 +5,8 @@ from matplotlib_inline import backend_inline
 from matplotlib import pyplot as plt
 import random, numpy as np, torch
 
+import sys
+core = sys.modules[__name__]
 
 # region core components
 seed = 588
@@ -22,6 +24,66 @@ numpy = lambda x, *args, **kwargs: x.detach().numpy(*args, **kwargs)
 def cpu():
     """Get the CPU device."""
     return torch.device('cpu')
+
+def set_axes(axes, xlabel, ylabel, xlim, ylim, xscale, yscale, legend):
+    """Set the axes for matplotlib.
+
+    Defined in :numref:`sec_calculus`"""
+    axes.set_xlabel(xlabel), axes.set_ylabel(ylabel)
+    axes.set_xscale(xscale), axes.set_yscale(yscale)
+    axes.set_xlim(xlim),     axes.set_ylim(ylim)
+    if legend:
+        axes.legend(legend)
+    axes.grid()
+
+def set_figsize(figsize=(3.5, 2.5)):
+    """
+    intro:
+        Set the figure size for matplotlib.
+    args:
+        :param tuple figsize: inchs.
+    """
+    use_svg_display()
+    plt.rcParams['figure.figsize'] = figsize
+
+def plot(X, 
+         Y=None, 
+         xlabel=None, 
+         ylabel=None, 
+         legend=[], 
+         xlim=None,
+         ylim=None, 
+         xscale='linear', 
+         yscale='linear',
+         fmts=('-', 'm--', 'g-.', 'r:'), 
+         figsize=(3.5, 2.5), 
+         axes=None):
+    """
+    intro:
+        Plot data points.
+    args:
+        :param torch.Tensor/list X: x-axis.
+    """
+    def has_one_axis(X):  # True if X (tensor or list) has 1 axis
+        return (hasattr(X, "ndim") and X.ndim == 1 or isinstance(X, list)
+                and not hasattr(X[0], "__len__"))
+
+    if has_one_axis(X): X = [X]
+    if Y is None:
+        X, Y = [[]] * len(X), X
+    elif has_one_axis(Y):
+        Y = [Y]
+    if len(X) != len(Y):
+        X = X * len(Y)
+
+    # set figure size
+    set_figsize(figsize)
+    if axes is None:
+        axes = plt.gca()
+    axes.cla()
+    for x, y, fmt in zip(X, Y, fmts):
+        axes.plot(x,y,fmt) if len(x) else axes.plot(y,fmt)
+    set_axes(axes, xlabel, ylabel, xlim, ylim, xscale, yscale, legend)
 
 def softmax(X):
     X_exp = torch.exp(X)
