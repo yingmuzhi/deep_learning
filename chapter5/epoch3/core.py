@@ -4,11 +4,12 @@ from IPython import display
 from matplotlib_inline import backend_inline
 from matplotlib import pyplot as plt
 import random, numpy as np, torch
+import torchvision
 
 import sys
-core = sys.modules[__name__]
+core = sys.modules[__name__]    # 指向当前库的引用指针, 在本文件中可以用core.plt代替plt
 
-# region core components
+# region core seeds
 seed = 588
 random.seed(seed)
 np.random.seed(seed)
@@ -60,28 +61,44 @@ def plot(X,
          axes=None):
     """
     intro:
-        Plot data points.
+        Plot data points. Like X is [1, 2, ...], Y is [1, 2, ...], It will plot one line using X and Y pairs.
+    examples:
+        >>> # relu
+        >>> x = torch.arange(-8.0, 8.0, 0.1, requires_grad=True)
+        >>> y = torch.relu(x)
+        >>> core.plot(x.detach(), y.detach(), 'x', 'relu(x)', figsize=(5, 2.5))     # detach 脱离计算图
     args:
         :param torch.Tensor/list X: x-axis.
+        :param:
+        :param str xlabel: x轴标签的文本，默认为'None'.
+        :param:
+        :param list lengend: 图例（legend）的文本列表，默认为空列表[].
+        :param tuple xlim: x轴的限制范围，可以是一个包含两个元素的元组，例如(xmin, xmax)，默认为None.
+        :param:
+        :param str xscale: x轴的刻度类型，可以是'linear'（线性刻度）或'log'（对数刻度），默认为'linear'
+        :param:
+        :param tuple fmts: 一个包含线条样式的元组，默认为('-', 'm--', 'g-.', 'r:')。这些样式用于区分不同数据系列的线条。
+        :param tuple figsize: 图形的尺寸，可以是一个包含两个元素的元组，例如(width, height)，默认为(3.5, 2.5)。默认为英寸为单位。
+        :param plt.axes axes: 图形的坐标轴，如果未指定，则使用默认坐标轴。
     """
     def has_one_axis(X):  # True if X (tensor or list) has 1 axis
         return (hasattr(X, "ndim") and X.ndim == 1 or isinstance(X, list)
                 and not hasattr(X[0], "__len__"))
-
-    if has_one_axis(X): X = [X]
+    # 为了让X, Y长度匹配。第一个维度代表有几条钱. if has_one_axis == True means one line
+    if has_one_axis(X): X = [X] #  make it to one dimension list, like [torch.Tensor]
     if Y is None:
         X, Y = [[]] * len(X), X
-    elif has_one_axis(Y):
-        Y = [Y]
+    elif has_one_axis(Y):   
+        Y = [Y] #  make it to one dimension list
     if len(X) != len(Y):
         X = X * len(Y)
 
     # set figure size
     set_figsize(figsize)
     if axes is None:
-        axes = plt.gca()
-    axes.cla()
-    for x, y, fmt in zip(X, Y, fmts):
+        axes = plt.gca()    # get current axis
+    axes.cla()  # clear axis
+    for x, y, fmt in zip(X, Y, fmts):   # the most is 4 lines
         axes.plot(x,y,fmt) if len(x) else axes.plot(y,fmt)
     set_axes(axes, xlabel, ylabel, xlim, ylim, xscale, yscale, legend)
 
@@ -237,7 +254,6 @@ class ProgressBoard(HyperParameters):
         display.display(self.fig)
         display.clear_output(wait=True)
 # endregion
-
 
 # region core components
 class ModelModule(torch.nn.Module, HyperParameters):
@@ -484,4 +500,85 @@ class TrainerModule(HyperParameters):
         if norm > grad_clip_val:
             for param in params:
                 param.grad[:] *= grad_clip_val / norm
+# endregion
+
+# region added
+####### Model in SOFTMAX_LNN
+class Classifier(core.ModelModule):
+    """
+    intro:
+        Using SGD loss. Add accuracy judge
+    """
+    def validation_step(self, batch):
+        Y_hat = self(*batch[:-1])
+        self.plot("loss", self.loss(Y_hat, batch[-1]), train=False)
+        self.plot("acc", self.accuracy(Y_hat, batch[-1]), train=False)
+    
+    def configure_optimizers(self):
+        return torch.optim.SGD(self.parameters(), lr=self.lr)
+    
+    def accuracy(self, Y_hat, Y, averaged=True):
+        """Compute the number of correct predictions."""
+        Y_hat = Y_hat.reshape((-1, Y_hat.shape[-1]))
+        preds = Y_hat.argmax(axis=1).type(Y.dtype)
+        compare = (preds == Y.reshape(-1)).type(torch.float32)
+        return compare.mean() if averaged else compare
+
+    def loss(self, Y_hat, Y, averaged=True):
+        Y_hat = Y_hat.reshape((-1, Y_hat.shape[-1]))
+        Y = Y.reshape((-1,))
+        return torch.nn.functional.cross_entropy(
+            Y_hat, Y, reduction='mean' if averaged else 'none')
+    
+    
+####### Data in SOFTMAX_LNN
+class FashionMNIST(core.DataModule):
+    """Fashion-MNIST dataset"""
+    def __init__(self,
+                 batch_size=64,
+                 resize=(28, 28),
+                 root="/home/yingmuzhi/_learning/d2l/data",
+                 download=False):
+        super().__init__()
+        self.save_hyperparameters()
+        trans = torchvision.transforms.Compose([
+            torchvision.transforms.Resize(resize),
+            torchvision.transforms.ToTensor(),
+        ])
+        # dataset
+        self.train = torchvision.datasets.FashionMNIST(
+            root=self.root,
+            train=True,
+            transform=trans,
+            download=download,
+        )
+        self.val = torchvision.datasets.FashionMNIST(
+            root=self.root,
+            train=False,
+            transform=trans,
+            download=download,
+        )
+    
+    def get_dataloader(self, train):
+        data = self.train if train else self.val
+        return torch.utils.data.DataLoader(data, 
+                                           self.batch_size, 
+                                           shuffle=train, 
+                                           num_workers=self.num_workers)
+
+# transform index to text
+@core.add_to_class(FashionMNIST)
+def text_labels(self, indices):
+    """Return text labels."""
+    labels = ['t-shirt', 'trouser', 'pullover', 'dress', 'coat',
+              'sandal', 'shirt', 'sneaker', 'bag', 'ankle boot']
+    return [labels[int(i)] for i in indices]
+
+# visualize data
+@core.add_to_class(FashionMNIST)  #@save
+def visualize(self, batch, nrows=1, ncols=8, labels=[]):
+    X, y = batch
+    if not labels:
+        labels = self.text_labels(y)
+    core.show_images(X.squeeze(1), nrows, ncols, titles=labels)
 # endregion
