@@ -169,13 +169,10 @@ class HyperParameters:
     >>> b = B(a=1, b=2, c=3)
     """
     def save_hyperparameters(self, ignore=[]):
-        """Defined in :numref:`sec_oo-design`"""
-        raise NotImplemented
-
-    def save_hyperparameters(self, ignore=[]):
         """Save function arguments into class attributes.
     
         Defined in :numref:`sec_utils`"""
+        # raise NotImplemented
         frame = inspect.currentframe().f_back
         _, _, _, local_vars = inspect.getargvalues(frame)
         self.hparams = {k:v for k, v in local_vars.items()
@@ -207,9 +204,7 @@ class ProgressBoard(HyperParameters):
         self.save_hyperparameters()
 
     def draw(self, x, y, label, every_n=1):
-        raise NotImplemented
-
-    def draw(self, x, y, label, every_n=1):
+        # raise NotImplementedError
         """Defined in :numref:`sec_utils` 
         这里的(x,y)是二维的点坐标，而label是绘制曲线的名称，every_n是绘制的频率即每几个点后更新图形"""
         Point = collections.namedtuple('Point', ['x', 'y']) # 创建一个名为Point的命名元组 p1 = Point(x=1, y=2); print(p1.x)  # 输出 1
@@ -282,7 +277,9 @@ class Module(nn.Module, HyperParameters):  #@save
         self.board = ProgressBoard()
 
     def loss(self, y_hat, y):
-        raise NotImplementedError
+        # raise NotImplementedError
+        fn = nn.MSELoss()
+        return fn(y_hat, y)
 
     def forward(self, X):
         assert hasattr(self, 'net'), 'Neural network is defined'
@@ -315,7 +312,8 @@ class Module(nn.Module, HyperParameters):  #@save
         self.plot('loss', l, train=False)
 
     def configure_optimizers(self):
-        raise NotImplementedError
+        # raise NotImplementedError
+        return torch.optim.SGD(self.parameters(), self.lr)
 
 
 """
@@ -336,14 +334,17 @@ class DataModule(HyperParameters):  #@save
     def __init__(self, root='../data', num_workers=4):
         self.save_hyperparameters()
 
-    def get_dataloader(self, train):
-        raise NotImplementedError
-
     def train_dataloader(self):
         return self.get_dataloader(train=True)
 
     def val_dataloader(self):
         return self.get_dataloader(train=False)
+    
+    def get_dataloader(self, train):
+        # raise NotImplementedError
+        """Defined in :numref:`sec_synthetic-regression-data`"""
+        i = slice(0, self.num_train) if train else slice(self.num_train, None)
+        return self.get_tensorloader((self.X, self.y), train, i)
 
     # add
     def get_tensorloader(self, tensors, train, indices=slice(0, None)):
@@ -379,7 +380,7 @@ class Trainer(HyperParameters):  #@save
     
     # add
     def prepare_batch(self, batch):
-        raise NotImplementedError
+        return batch
     
     def prepare_model(self, model):
         model.trainer = self
@@ -397,7 +398,45 @@ class Trainer(HyperParameters):  #@save
             self.fit_epoch()
 
     def fit_epoch(self):
-        raise NotImplementedError
+        # 1. training time
+        self.model.train()
+        for batch in self.train_dataloader:
+            loss = self.model.training_step(self.prepare_batch(batch))
+            self.optim.zero_grad()
+            # 2. grad clip
+            with torch.no_grad():
+                loss.backward()
+                if self.gradient_clip_val > 0:
+                    self.clip_gradients(self.gradient_clip_val, self.model)
+                self.optim.step()
+            self.train_batch_idx += 1
+        if self.val_dataloader is None:
+            return 
+        # 3. (optional) validation time
+        self.model.eval()
+        for batch in self.val_dataloader:
+            with torch.no_grad():
+                self.model.validation_step(self.prepare_batch(batch))
+            self.val_batch_idx += 1
+# endregion
+
+
+# region Appendix
+class SyntheticRegressionData(DataModule):  #@save
+    """Synthetic data for linear regression."""
+    def __init__(self, w, b, noise=0.01, num_train=1000, num_val=1000,
+                batch_size=32):
+        super().__init__()
+        self.save_hyperparameters()
+        n = num_train + num_val
+        self.X = torch.randn(n, len(w))
+        noise = torch.randn(n, 1) * noise
+        self.y = torch.matmul(self.X, w.reshape((-1, 1))) + b + noise   
+    
+    def get_dataloader(self, train):
+        """Defined in :numref:`sec_synthetic-regression-data`"""
+        i = slice(0, self.num_train) if train else slice(self.num_train, None)
+        return self.get_tensorloader((self.X, self.y), train, i)
 # endregion
 
 
