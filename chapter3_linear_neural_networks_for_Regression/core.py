@@ -248,6 +248,11 @@ class ProgressBoard(HyperParameters):
 
 
 # region APIs
+def cpu():
+    """Get the CPU device.
+
+    Defined in :numref:`sec_use_gpu`"""
+    return torch.device('cpu')
 """
 Name: 
     Model module
@@ -263,30 +268,41 @@ Intro:
 
     validation_step to report the evaluation measures.
 """
-def cpu():
-    """Get the CPU device.
-
-    Defined in :numref:`sec_use_gpu`"""
-    return torch.device('cpu')
-
 class Module(nn.Module, HyperParameters):  #@save
     """The base class of models."""
     def __init__(self, plot_train_per_epoch=2, plot_valid_per_epoch=1):
+        """
+        intro:
+            init self.net to get model parameters. 
+            init self.board to get ProgressBar, that is, TensorBoard.
+        """
         super().__init__()
         self.save_hyperparameters()
+        self.net = None
         self.board = ProgressBoard()
 
     def loss(self, y_hat, y):
+        """
+        intro:
+            init loss(fn), then calculate the loss between (y_hat, y).
+        """
         # raise NotImplementedError
         fn = nn.MSELoss()
         return fn(y_hat, y)
 
     def forward(self, X):
+        """
+        intro:
+            how to calculate the model learnable parameters using forward.
+        """
         assert hasattr(self, 'net'), 'Neural network is defined'
         return self.net(X)
 
     def plot(self, key, value, train):
-        """Plot a point in animation."""
+        """
+        intro:
+            plot loss. Plot a point in animation.
+        """
         assert hasattr(self, 'trainer'), 'Trainer is not inited'
         self.board.xlabel = 'epoch'
         if train:
@@ -303,19 +319,29 @@ class Module(nn.Module, HyperParameters):  #@save
                         every_n=int(n))
 
     def training_step(self, batch):
+        """
+        intro:
+            how to calculate loss in one batch.
+        """
         l = self.loss(self(*batch[:-1]), batch[-1])
         self.plot('loss', l, train=True)
         return l
 
     def validation_step(self, batch):
+        """
+        intro:
+            how to calculate loss in one batch.
+        """
         l = self.loss(self(*batch[:-1]), batch[-1])
         self.plot('loss', l, train=False)
 
     def configure_optimizers(self):
+        """
+        intro:
+            return optimizer
+        """
         # raise NotImplementedError
         return torch.optim.SGD(self.parameters(), self.lr)
-
-
 """
 Name:
     Data Module
@@ -332,23 +358,41 @@ Intro:
 class DataModule(HyperParameters):  #@save
     """The base class of data."""
     def __init__(self, root='../data', num_workers=4):
+        """
+        intro:
+            read the data path.
+        """
         self.save_hyperparameters()
 
     def train_dataloader(self):
+        """
+        intro:
+            return training dataloader
+        """
         return self.get_dataloader(train=True)
 
     def val_dataloader(self):
+        """
+        intro:
+            return validation dataloader
+        """
         return self.get_dataloader(train=False)
     
     def get_dataloader(self, train):
+        """
+        intro:
+            return train / validation dataloader depend on train == True / False
+        """
         # raise NotImplementedError
-        """Defined in :numref:`sec_synthetic-regression-data`"""
         i = slice(0, self.num_train) if train else slice(self.num_train, None)
         return self.get_tensorloader((self.X, self.y), train, i)
 
     # add
     def get_tensorloader(self, tensors, train, indices=slice(0, None)):
-        """Defined in :numref:`sec_synthetic-regression-data`"""
+        """
+        intro:
+            get dataset through `class DIYDataset` inherit `Dataset` using `torch.utils.data.Dataset`. then return dataloader
+        """
         tensors = tuple(a[indices] for a in tensors)
         dataset = torch.utils.data.TensorDataset(*tensors)
         return torch.utils.data.DataLoader(dataset, self.batch_size,
@@ -362,13 +406,21 @@ Intro:
 
     The key method is fit, which accepts two arguments: model, an instance of Module, and data, an instance of DataModule. It then iterates over the entire dataset max_epochs times to train the model. 
 """
-class Trainer(HyperParameters):  #@save
+class Trainer(HyperParameters):  
     """The base class for training models with data."""
     def __init__(self, max_epochs, num_gpus=0, gradient_clip_val=0):
+        """
+        intro:
+            init trainer
+        """
         self.save_hyperparameters()
         assert num_gpus == 0, 'No GPU support yet'
 
     def prepare_data(self, data):
+        """
+        intro:
+            get self.train_dataloader, self.val_dataloader
+        """
         self.train_dataloader = data.train_dataloader()
         self.val_dataloader = data.val_dataloader()
         try:
@@ -383,11 +435,19 @@ class Trainer(HyperParameters):  #@save
         return batch
     
     def prepare_model(self, model):
+        """
+        intro:
+            get self.model
+        """
         model.trainer = self
         model.board.xlim = [0, self.max_epochs]
         self.model = model
 
     def fit(self, model, data):
+        """
+        intro:
+            fit.
+        """
         self.prepare_data(data)
         self.prepare_model(model)
         self.optim = model.configure_optimizers()
@@ -398,6 +458,10 @@ class Trainer(HyperParameters):  #@save
             self.fit_epoch()
 
     def fit_epoch(self):
+        """
+        intro:
+            fit per epoch
+        """
         # 1. training time
         self.model.train()
         for batch in self.train_dataloader:
@@ -422,6 +486,11 @@ class Trainer(HyperParameters):  #@save
 
 
 # region Appendix
+normal = torch.normal
+zeros = torch.zeros
+matmul = torch.matmul
+reduce_mean = lambda x, *args, **kwargs: x.mean(*args, **kwargs)
+"""chapter 3"""
 class SyntheticRegressionData(DataModule):  #@save
     """Synthetic data for linear regression."""
     def __init__(self, w, b, noise=0.01, num_train=1000, num_val=1000,
@@ -437,6 +506,73 @@ class SyntheticRegressionData(DataModule):  #@save
         """Defined in :numref:`sec_synthetic-regression-data`"""
         i = slice(0, self.num_train) if train else slice(self.num_train, None)
         return self.get_tensorloader((self.X, self.y), train, i)
+
+class LinearRegressionScratch(Module):
+    """The linear regression model implemented from scratch.
+
+    Defined in :numref:`sec_linear_scratch`"""
+    def __init__(self, num_inputs, lr, sigma=0.01):
+        super().__init__()
+        self.save_hyperparameters()
+        self.w = normal(0, sigma, (num_inputs, 1), requires_grad=True)
+        self.b = zeros(1, requires_grad=True)
+
+    def forward(self, X):
+        """Defined in :numref:`sec_linear_scratch`"""
+        return matmul(X, self.w) + self.b
+
+    def loss(self, y_hat, y):
+        """Defined in :numref:`sec_linear_scratch`"""
+        l = (y_hat - y) ** 2 / 2
+        return reduce_mean(l)
+
+    def configure_optimizers(self):
+        """Defined in :numref:`sec_linear_scratch`"""
+        return SGD([self.w, self.b], self.lr)
+
+class SGD(HyperParameters):
+    """Minibatch stochastic gradient descent.
+
+    Defined in :numref:`sec_linear_scratch`"""
+    def __init__(self, params, lr):
+        self.save_hyperparameters()
+
+    def step(self):
+        for param in self.params:
+            param -= self.lr * param.grad
+
+    def zero_grad(self):
+        for param in self.params:
+            if param.grad is not None:
+                param.grad.zero_()
+
+class LinearRegression(Module):
+    """The linear regression model implemented with high-level APIs.
+
+    Defined in :numref:`sec_linear_concise`"""
+    def __init__(self, lr):
+        super().__init__()
+        self.save_hyperparameters()
+        self.net = nn.LazyLinear(1)
+        self.net.weight.data.normal_(0, 0.01)
+        self.net.bias.data.fill_(0)
+
+    def forward(self, X):
+        """Defined in :numref:`sec_linear_concise`"""
+        return self.net(X)
+
+    def loss(self, y_hat, y):
+        """Defined in :numref:`sec_linear_concise`"""
+        fn = nn.MSELoss()
+        return fn(y_hat, y)
+
+    def configure_optimizers(self):
+        """Defined in :numref:`sec_linear_concise`"""
+        return torch.optim.SGD(self.parameters(), self.lr)
+
+    def get_w_b(self):
+        """Defined in :numref:`sec_linear_concise`"""
+        return (self.net.weight.data, self.net.bias.data)
 # endregion
 
 
