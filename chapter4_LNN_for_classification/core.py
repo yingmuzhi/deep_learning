@@ -1,7 +1,7 @@
 '''
 Version: 1.0
 
-Time: 20240228
+Time: 20240306
 
 intro: core.py for machine learning.
 
@@ -112,6 +112,7 @@ logger:
 '''
 import math
 import time
+import sys
 import numpy as np
 import torch
 import inspect
@@ -130,6 +131,8 @@ torch.manual_seed(seed)
 torch.cuda.manual_seed(seed)
 
 CURRENT_VERSION=1.0
+
+core = sys.modules[__name__]
 
 # region Foundation APIs
 def add_to_class(Class):  #@save
@@ -360,7 +363,10 @@ class DataModule(HyperParameters):  #@save
     def __init__(self, root='../data', num_workers=4):
         """
         intro:
-            read the data path.
+            read the data path. 
+            init self.train == Dataset_train
+            init self.val == Dataset_val
+            num_workers is used in DataLoader.
         """
         self.save_hyperparameters()
 
@@ -490,6 +496,7 @@ normal = torch.normal
 zeros = torch.zeros
 matmul = torch.matmul
 reduce_mean = lambda x, *args, **kwargs: x.mean(*args, **kwargs)
+numpy = lambda x, *args, **kwargs: x.detach().numpy(*args, **kwargs)
 # region Chapter 3
 class SyntheticRegressionData(DataModule):  #@save
     """Synthetic data for linear regression."""
@@ -575,7 +582,24 @@ class LinearRegression(Module):
         return (self.net.weight.data, self.net.bias.data)
 # endregion
 # region Chapter 4
-    
+def show_images(imgs, num_rows, num_cols, titles=None, scale=1.5):
+    """Plot a list of images.
+
+    Defined in :numref:`sec_utils`"""
+    figsize = (num_cols * scale, num_rows * scale)
+    _, axes = core.plt.subplots(num_rows, num_cols, figsize=figsize)
+    axes = axes.flatten()
+    for i, (ax, img) in enumerate(zip(axes, imgs)):
+        try:
+            img = core.numpy(img)
+        except:
+            pass
+        ax.imshow(img)
+        ax.axes.get_xaxis().set_visible(False)
+        ax.axes.get_yaxis().set_visible(False)
+        if titles:
+            ax.set_title(titles[i])
+    return axes
 # endregion
     
 # endregion
