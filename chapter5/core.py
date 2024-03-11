@@ -1,7 +1,7 @@
 '''
 Version: 1.0
 
-Time: 20240306
+Time: 202403011
 
 intro: core.py for machine learning.
 
