@@ -7,6 +7,8 @@ from d2l import torch as d2l
 
 """
 layer without parameters
+
+深度学习最灵活的一点在于可以在forward方法中结合torch.nn.functional中的函数来实现自定义层。
 """
 class CenteredLayer(nn.Module):
     def __init__(self):

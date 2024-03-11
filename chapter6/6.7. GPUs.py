@@ -5,7 +5,15 @@
 
 import torch
 from torch import nn
-from d2l import torch as d2l
+
+# 使用os中的环境变量来指定最终可以看到的GPU
+import os
+os.environ["CUDA_VISIBLE_DEVICES"] = "0, 1, 2, 3, 4, 5"
+os.environ["NCCL_DEBUG"] = "INFO"
+
+# 使用`net.to`, `tensor.to`将Torch.Tensor传到特定硬件上。
+
+# 使用`nvidia-smi -l 2`来一直查看显卡挂载
 
 print(torch.device("cpu"))
 print(torch.device("cuda:1"))

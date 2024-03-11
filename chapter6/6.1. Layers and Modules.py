@@ -1,4 +1,3 @@
-
 import torch
 from torch import nn
 from torch.nn import functional as F
@@ -7,6 +6,8 @@ from torch.nn import functional as F
 """
 
 6.1. Layers and Modules
+
+when we run `net(X)`, which means running `net.__call__(X)`.
 """
 net = nn.Sequential(nn.LazyLinear(256), nn.ReLU(), nn.LazyLinear(10))
 
@@ -38,7 +39,7 @@ print(net(X).shape)
 
 """
 
-6.1.2. The Sequential Module
+6.1.2. The DIY Sequential Module
 """
 class MySequential(nn.Module):
     def __init__(self, *args):
@@ -58,6 +59,8 @@ net(X).shape
 """
     
 6.1.3. Executing Code in the Forward Propagation Method
+
+We can add math process in `forward` method.
 """
 class FixedHiddenMLP(nn.Module):
     def __init__(self):
@@ -85,6 +88,8 @@ net(X)
 """
 
 组合嵌套块
+
+一个层就是一个nn.LazyLinear()类似的API，而一个块就是一个class继承自nn.Module
 """
 class NestMLP(nn.Module):
     def __init__(self):

@@ -13,6 +13,9 @@ print(net(X).shape)
 """
 
 6.2.1. Parameter Access
+
+我们在访问模型参数的时候使用`net.state_dict()`，访问特定层用`net[2].state_dict()`
+使用`torch.save(net.state_dict())`保存模型参数。
 """
 # print model
 print(net)
@@ -34,6 +37,9 @@ print(net[2].weight.grad)   # no loss.backward(), such output is None.
 """
 
 6.2.1.2. All Parameters at Once
+
+我们使用`net.named_parameters()`来访问网络中每一层的名字，和每一层的shape。
+网络全访问使用`[(name, param.shape) for name, param in net.named_parameters()]`
 """
 
 

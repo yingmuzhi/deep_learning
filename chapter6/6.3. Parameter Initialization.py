@@ -21,6 +21,8 @@ using built-in func to init.
 - `nn.init.xavier_uniform_(module.weight)`
 - `nn.init.kaiming_uniform_(module.weight)` # default one for Linear, and the type is Leaky_ReLU
 - `nn.init.uniform_(module.weight, -10, 10)`
+
+net.apply(init_normal)方法会将model中的所有层都执行init_normal方法，用于进行模型参数初始化
 """
 def init_normal(module):
     if type(module) == nn.Linear:
