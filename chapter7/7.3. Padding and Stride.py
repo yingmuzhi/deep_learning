@@ -1,8 +1,26 @@
-
 import torch
 from torch import nn
 
+"""
+以2D为例，在卷积计算过程中最重要的就是一下几个参数，
 
+- input_size: Sin   (也即输入图像大小)
+- output_size: Sout (也即输出图像大小)
+- input_channel: Cin
+- output_channel: Cout
+- kernel_size: k1*k2 (一般卷积核大小为正方形，令k = k1 = k2)
+- kernel_padding: padding
+- kernel_stride: stride
+- parameters_number: Params (参数个数)
+
+计算过程：在每一次计算时，会进行output_channel轮次的互相关计算；而每一轮，会有Cin个kernel去跟图片的每个channel去进行互相关计算，最终将Cin个结果相加，得到output中的一个channel值；
+
+经过卷积计算后**输出特征矩阵的尺寸大小**计算公式：Sout = (Sin - k + 2*padding) / stride + 1
+
+**卷积层参数个数**计算: Params = Cout * ( Cin * k * k + 1 )      # 1 是卷积的bias
+
+**全连接层参数个数**计算: Params = (Cin + 1) * Cout         # 1 是全连接层的bias, 全连接层会全部展平, 不要再讲什么多channel了, 多channel都没展平
+"""
 """padding"""
 # We define a helper function to calculate convolutions. It initializes the
 # convolutional layer weights and performs corresponding dimensionality

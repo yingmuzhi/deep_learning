@@ -1,14 +1,15 @@
 
 import torch
 from torch import nn
-from d2l import torch as d2l
 
 
 """
 
 7.2.1. The Cross-Correlation Operation
-计算互相关
+回忆深度学习中卷积层的计算，其实我们能够发现严格意义上讲这并不是卷积计算，而是互相关运算。我们使用
+卷积核将对应位置的元素相乘后再相加得到一个元素，再将卷积核移动，计算下一个元素。
 """
+# 接下来，我们手动实现卷积层的计算。X是Input输入向量，K是Kernel卷积核
 def corr2d(X, K):  #@save
     """Compute 2D cross-correlation."""
     h, w = K.shape
@@ -26,7 +27,7 @@ print(corr2d(X, K))
 """
 
 7.2.2. Convolutional Layers
-卷积计算即：计算互相关后再加上偏置
+卷积层的完整计算过程是：计算互相关后再加上偏置
 """
 class Conv2D(nn.Module):
     def __init__(self, kernel_size):
@@ -41,7 +42,7 @@ class Conv2D(nn.Module):
 """
 
 7.2.3. Object Edge Detection in Images
-边缘检测为例
+卷积层的一个简单应用在于：通过查找像素变化的位置来检测图像中对象的边缘
 """
 X = torch.ones((6, 8))
 X[:, 2:6] = 0
@@ -81,3 +82,8 @@ for i in range(10):
         print(f'epoch {i + 1}, loss {l.sum():.3f}')
 
 print(conv2d.weight.data.reshape((1, 2)))   # 会发现非常接近于我们前面定义的权重矩阵的元素的值
+"""
+就卷积本身而言，它们可用于多种目的，例如检测边缘和线条、模糊图像或锐化图像。
+最重要的是，统计学家（或工程师）没有必要发明合适的过滤器。相反，我们可以简单地从数据中学习它们。
+这用基于证据的统计数据取代了特征工程启发法。
+"""

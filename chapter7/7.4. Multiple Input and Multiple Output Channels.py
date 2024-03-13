@@ -1,12 +1,12 @@
 
 import torch
-from d2l import torch as d2l
+import core
 
 
 """multiple input"""
 def corr2d_multi_in(X, K):
     # Iterate through the 0th dimension (channel) of K first, then add them up
-    return sum(d2l.corr2d(x, k) for x, k in zip(X, K))
+    return sum(core.corr2d(x, k) for x, k in zip(X, K))
 
 X = torch.tensor([[[0.0, 1.0, 2.0], [3.0, 4.0, 5.0], [6.0, 7.0, 8.0]],
                [[1.0, 2.0, 3.0], [4.0, 5.0, 6.0], [7.0, 8.0, 9.0]]])
@@ -27,7 +27,9 @@ print(K.shape)
 print(corr2d_multi_in_out(X, K))
 
 
-"""1x1 convolutional"""
+"""1x1 convolutional
+1x1卷积核最大的用处在于不改变输出特征矩阵size的情况下，改变了输出特征矩阵的channel
+"""
 def corr2d_multi_in_out_1x1(X, K):
     c_i, h, w = X.shape
     c_o = K.shape[0]

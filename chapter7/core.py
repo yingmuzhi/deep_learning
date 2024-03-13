@@ -1,7 +1,7 @@
 '''
 Version: 1.0
 
-Time: 202403012
+Time: 202403013
 
 intro: core.py for machine learning.
 
@@ -125,15 +125,19 @@ import torchvision.transforms as transforms
 import torchvision
 from torch.nn import functional as F
 
+# Const
+CURRENT_VERSION=1.0
+SEED = seed = 3407
+
 # set seed
-seed = 588
 import random, numpy as np, torch
 random.seed(seed)
 np.random.seed(seed)
 torch.manual_seed(seed)
 torch.cuda.manual_seed(seed)
 
-CURRENT_VERSION=1.0
+print("The version of core.py is {}\n".format(CURRENT_VERSION) + \
+      "The seed is {}::if you want to change seed, change it in core.py".format(SEED))
 
 core = sys.modules[__name__]
 
@@ -499,6 +503,7 @@ normal = torch.normal
 zeros = torch.zeros
 matmul = torch.matmul
 reduce_mean = lambda x, *args, **kwargs: x.mean(*args, **kwargs)
+reduce_sum = lambda x, *args, **kwargs: x.sum(*args, **kwargs)
 numpy = lambda x, *args, **kwargs: x.detach().numpy(*args, **kwargs)
 reshape = lambda x, *args, **kwargs: x.reshape(*args, **kwargs)
 astype = lambda x, *args, **kwargs: x.type(*args, **kwargs)
@@ -721,7 +726,18 @@ def plot(X, Y=None, xlabel=None, ylabel=None, legend=[], xlim=None,
     for x, y, fmt in zip(X, Y, fmts):
         axes.plot(x,y,fmt) if len(x) else axes.plot(y,fmt)
     set_axes(axes, xlabel, ylabel, xlim, ylim, xscale, yscale, legend)
-# endregion    
+# endregion 
+# region Chapter 7
+def corr2d(X, K):
+    """Compute 2D cross-correlation.
+
+    Defined in :numref:`sec_conv_layer`"""
+    h, w = K.shape
+    Y = zeros((X.shape[0] - h + 1, X.shape[1] - w + 1))
+    for i in range(Y.shape[0]):
+        for j in range(Y.shape[1]):
+            Y[i, j] = reduce_sum((X[i: i + h, j: j + w] * K))
+    return Y   
 # endregion
 
 

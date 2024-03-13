@@ -1,9 +1,11 @@
 
 import torch
 from torch import nn
-from d2l import torch as d2l
 
-
+"""
+池化层最大的作用在于：在不改变输入特征矩阵和输出特征矩阵维度的情况下，改变了输出特征矩阵的大小
+虽然后来卷积层也做到了
+"""
 def pool2d(X, pool_size, mode='max'):
     p_h, p_w = pool_size
     Y = torch.zeros((X.shape[0] - p_h + 1, X.shape[1] - p_w + 1))
