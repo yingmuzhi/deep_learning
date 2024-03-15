@@ -258,11 +258,64 @@ class ProgressBoard(HyperParameters):
 
 
 # region APIs
-def cpu():
-    """Get the CPU device.
+"""
+Name:
+    Data Module
 
-    Defined in :numref:`sec_use_gpu`"""
-    return torch.device('cpu')
+Intro:
+    The DataModule class is the base class for data.
+
+    __init__ method is used to prepare the data. This includes downloading and preprocessing if needed.
+
+    train_dataloader returns the data loader for the training dataset. A data loader is a (Python) generator that yields a data batch each time it is used. This batch is then fed into the training_step method of Module to compute the loss.
+
+    There is an optional val_dataloader to return the validation dataset loader.
+"""
+class DataModule(HyperParameters):  #@save
+    """The base class of data."""
+    def __init__(self, root='../data', num_workers=4):
+        """
+        intro:
+            read the data path. 
+            init self.train == Dataset_train
+            init self.val == Dataset_val
+            num_workers is used in DataLoader.
+        """
+        self.save_hyperparameters()
+
+    def train_dataloader(self):
+        """
+        intro:
+            return training dataloader
+        """
+        return self.get_dataloader(train=True)
+
+    def val_dataloader(self):
+        """
+        intro:
+            return validation dataloader
+        """
+        return self.get_dataloader(train=False)
+    
+    def get_dataloader(self, train):
+        """
+        intro:
+            return train / validation dataloader depend on train == True / False
+        """
+        # raise NotImplementedError
+        i = slice(0, self.num_train) if train else slice(self.num_train, None)
+        return self.get_tensorloader((self.X, self.y), train, i)
+
+    # add
+    def get_tensorloader(self, tensors, train, indices=slice(0, None)):
+        """
+        intro:
+            get dataset through `class DIYDataset` inherit `Dataset` using `torch.utils.data.Dataset`. then return dataloader
+        """
+        tensors = tuple(a[indices] for a in tensors)
+        dataset = torch.utils.data.TensorDataset(*tensors)
+        return torch.utils.data.DataLoader(dataset, self.batch_size,
+                                           shuffle=train)
 """
 Name: 
     Model module
@@ -352,64 +405,16 @@ class Module(nn.Module, HyperParameters):  #@save
         """
         # raise NotImplementedError
         return torch.optim.SGD(self.parameters(), self.lr)
-"""
-Name:
-    Data Module
-
-Intro:
-    The DataModule class is the base class for data.
-
-    __init__ method is used to prepare the data. This includes downloading and preprocessing if needed.
-
-    train_dataloader returns the data loader for the training dataset. A data loader is a (Python) generator that yields a data batch each time it is used. This batch is then fed into the training_step method of Module to compute the loss.
-
-    There is an optional val_dataloader to return the validation dataset loader.
-"""
-class DataModule(HyperParameters):  #@save
-    """The base class of data."""
-    def __init__(self, root='../data', num_workers=4):
-        """
-        intro:
-            read the data path. 
-            init self.train == Dataset_train
-            init self.val == Dataset_val
-            num_workers is used in DataLoader.
-        """
-        self.save_hyperparameters()
-
-    def train_dataloader(self):
-        """
-        intro:
-            return training dataloader
-        """
-        return self.get_dataloader(train=True)
-
-    def val_dataloader(self):
-        """
-        intro:
-            return validation dataloader
-        """
-        return self.get_dataloader(train=False)
     
-    def get_dataloader(self, train):
+    def apply_init(self, inputs, init=None):
         """
         intro:
-            return train / validation dataloader depend on train == True / False
+            Judge whether the dataset's batch can through the model.
+            Init the `self.net` parameter using `init`
         """
-        # raise NotImplementedError
-        i = slice(0, self.num_train) if train else slice(self.num_train, None)
-        return self.get_tensorloader((self.X, self.y), train, i)
-
-    # add
-    def get_tensorloader(self, tensors, train, indices=slice(0, None)):
-        """
-        intro:
-            get dataset through `class DIYDataset` inherit `Dataset` using `torch.utils.data.Dataset`. then return dataloader
-        """
-        tensors = tuple(a[indices] for a in tensors)
-        dataset = torch.utils.data.TensorDataset(*tensors)
-        return torch.utils.data.DataLoader(dataset, self.batch_size,
-                                           shuffle=train)
+        self.forward(*inputs)
+        if init is not None:
+            self.net.apply(init)
 """
 Name:
     Training Module
@@ -495,6 +500,77 @@ class Trainer(HyperParameters):
             with torch.no_grad():
                 self.model.validation_step(self.prepare_batch(batch))
             self.val_batch_idx += 1
+    
+    def clip_gradients(self, grad_clip_val, model):
+        """Defined in :numref:`sec_rnn-scratch`"""
+        params = [p for p in model.parameters() if p.requires_grad]
+        norm = torch.sqrt(sum(torch.sum((p.grad ** 2)) for p in params))
+        if norm > grad_clip_val:
+            for param in params:
+                param.grad[:] *= grad_clip_val / norm
+"""
+Name:
+    Trainer_GPU
+
+Intro:
+    Trainer on GPU.
+"""
+def cpu():
+    """
+    intro:
+        Get the CPU device.
+    """
+    return torch.device('cpu')
+def gpu(i=0):
+    """
+    intro:
+        Get a GPU device.
+    """
+    return torch.device("cuda:{}".format(i))
+def num_gpus():
+    """
+    intro:
+        Get the number of available GPUs.
+    """
+    return torch.cuda.device_count()
+class Trainer_GPU(Trainer):
+    def __init__(self, max_epochs, num_gpus=0, gradient_clip_val=0):
+        """
+        intro:
+            using GPU.
+        """
+        self.save_hyperparameters()
+        self.gpus = [gpu(i) for i in range(min(num_gpus, core.num_gpus()))]
+        pass
+    
+    def prepare_batch(self, batch):
+        """
+        intro:
+            passing batch to device.
+        """
+        if self.gpus:
+            batch = [to(a, self.gpus[0]) for a in batch]
+        return batch
+    
+    def prepare_model(self, model):
+        """
+        intro:
+            passing model to device.
+        """
+        model.trainer = self
+        model.board.xlim = [0, self.max_epochs]
+        if self.gpus:
+            model.to(self.gpus[0])
+        self.model = model
+"""
+Name:
+    Trainer_DDP
+
+Intro:
+    Trainer on DDP.
+"""
+class Trainer_DDP():
+    pass
 # endregion
 
 
@@ -508,6 +584,7 @@ numpy = lambda x, *args, **kwargs: x.detach().numpy(*args, **kwargs)
 reshape = lambda x, *args, **kwargs: x.reshape(*args, **kwargs)
 astype = lambda x, *args, **kwargs: x.type(*args, **kwargs)
 argmax = lambda x, *args, **kwargs: x.argmax(*args, **kwargs)
+to = lambda x, *args, **kwargs: x.to(*args, **kwargs)
 float32 = torch.float32
 randn = torch.randn
 # region Chapter 3

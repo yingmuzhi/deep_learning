@@ -1,7 +1,7 @@
 
 import torch
 from torch import nn
-from d2l import torch as d2l
+import core
 
 """
 
@@ -12,7 +12,7 @@ def init_cnn(module):  #@save
     if type(module) == nn.Linear or type(module) == nn.Conv2d:
         nn.init.xavier_uniform_(module.weight)
 
-class LeNet(d2l.Classifier):  #@save
+class LeNet(core.Classifier):  #@save
     """The LeNet-5 model."""
     def __init__(self, lr=0.1, num_classes=10):
         super().__init__()
@@ -28,7 +28,7 @@ class LeNet(d2l.Classifier):  #@save
             nn.LazyLinear(num_classes))
         
 
-@d2l.add_to_class(d2l.Classifier)  #@save
+@core.add_to_class(core.Classifier)  #@save
 def layer_summary(self, X_shape):
     X = torch.randn(*X_shape)
     for layer in self.net:
@@ -43,8 +43,8 @@ model.layer_summary((1, 1, 28, 28))
 
 Training
 """
-trainer = d2l.Trainer(max_epochs=10, num_gpus=1)
-data = d2l.FashionMNIST(batch_size=128)
+trainer = core.Trainer_GPU(max_epochs=10, num_gpus=1)
+data = core.FashionMNIST(batch_size=128)
 model = LeNet(lr=0.1)
 model.apply_init([next(iter(data.get_dataloader(True)))[0]], init_cnn)
 trainer.fit(model, data)
