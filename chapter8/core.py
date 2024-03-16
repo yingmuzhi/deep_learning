@@ -1,7 +1,7 @@
 '''
 Version: 1.0
 
-Time: 202403013
+Time: 202403016
 
 intro: core.py for machine learning.
 
@@ -112,7 +112,7 @@ logger:
 '''
 import math
 import time
-import sys
+import sys, os
 import numpy as np
 import torch
 import inspect
@@ -135,6 +135,10 @@ random.seed(seed)
 np.random.seed(seed)
 torch.manual_seed(seed)
 torch.cuda.manual_seed(seed)
+
+# GPU setting
+os.environ["CUDA_VISIBLE_DEVICES"] = "1, 2, 3, 4, 5"
+os.environ["NCCL_DEBUG"] = "INFO"
 
 print("The version of core.py is {}\n".format(CURRENT_VERSION) + \
       "The seed is {}::if you want to change seed, change it in core.py".format(SEED))
@@ -410,7 +414,7 @@ class Module(nn.Module, HyperParameters):  #@save
         """
         intro:
             Judge whether the dataset's batch can through the model.
-            Init the `self.net` parameter using `init`
+            Init the `self.net` parameter using `init`, the same as `self.nn.apply()`
             >>> model.apply_init([next(iter(data.get_dataloader(True)))[0]], init_cnn)
 
             >>> def init_cnn(module):  #@save
@@ -758,7 +762,10 @@ class Classifier(Module):
             Y_hat, Y, reduction='mean' if averaged else 'none')
 
     def layer_summary(self, X_shape):
-        """Defined in :numref:`sec_lenet`"""
+        """
+        intro:
+            output every layer's shape in model
+        """
         X = randn(*X_shape)
         for layer in self.net:
             X = layer(X)
@@ -820,7 +827,17 @@ def corr2d(X, K):
     for i in range(Y.shape[0]):
         for j in range(Y.shape[1]):
             Y[i, j] = reduce_sum((X[i: i + h, j: j + w] * K))
-    return Y   
+    return Y  
+# endregion
+# region Chapter 8
+def init_cnn(module):
+    """
+    intro:
+        Initialize weights for CNNs.
+    """
+    if type(module) == nn.Linear or type(module) == nn.Conv2d:
+        nn.init.xavier_uniform_(module.weight)
+# endregion 
 # endregion
 
 

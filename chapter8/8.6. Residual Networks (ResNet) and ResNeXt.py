@@ -1,13 +1,37 @@
+"""
+ResNet和ResNeXt , 这一网络用于设计更深的网络; ResNeXt在ResNet基础上借鉴了GoogLeNet, 分出多个相同头最后Concat拼接.
 
+He等人认为ResNet中每个附加层都应该更容易地将恒等函数包含为其元素之一；
+由于这个问题诞生的解决方案就是Residual Block残差块的提出，RNN，Transformer，GNN都借鉴了这个思路。
+
+注意Residual Block和torch.cat()相似, 但是完全不同。Residual Block是使用的+, 这意味着两个相加的部分必须shape相同;
+而cat()是在channel深度方向上进行拼接, 需要除了channel之外的shape相同.
+
+其中有两个有意思的函数如下：
+- `nn.AdaptiveAvgPool2d((1, 1))`: 用池化层，将输出特征矩阵输出到指定大小; 他和AvgPool2d的最大区别在于AvgPool2d需要指定kernel_size, stride等参数, 最后的输出特征矩阵由这些参数决定。
+
+是 PyTorch 中的一个层，用于在二维输入数据上执行自适应平均池化操作。它的作用是将输入的二维数据进行池化，使得输出的大小固定为指定的大小。
+具体来说，nn.AdaptiveAvgPool2d((1, 1)) 的作用是将输入的二维数据进行池化，使得输出的大小为 (1, 1)。这意味着无论输入的尺寸是多少，最终输出的尺寸都将是 (1, 1)。 
+
+- `self.net.add_module(name: str, module: Module) -> None`: 用于在自定义模型时动态的地向模型中添加子模块。
+
+而遍历每一层的名字和shape则可以用        
+for layer in self.net:
+            X = layer(X)
+            print(layer.__class__.__name__, 'output shape:\t', X.shape)
+
+也如同apply中用法:
+for module in self.children():
+            module.apply(fn)
+"""
 import torch
 from torch import nn
 from torch.nn import functional as F
-from d2l import torch as d2l
+import core
 
 
 """
-
-residual block
+搭建一个residual block
 """
 class Residual(nn.Module):  #@save
     """The Residual block of ResNet models."""
@@ -42,17 +66,16 @@ print(blk(X).shape)
 
 
 """
-
-ResNet
+搭建一个ResNet
 """
-class ResNet(d2l.Classifier):
+class ResNet(core.Classifier):
     def b1(self):
         return nn.Sequential(
             nn.LazyConv2d(64, kernel_size=7, stride=2, padding=3),
             nn.LazyBatchNorm2d(), nn.ReLU(),
             nn.MaxPool2d(kernel_size=3, stride=2, padding=1))
 
-@d2l.add_to_class(ResNet)
+@core.add_to_class(ResNet)
 def block(self, num_residuals, num_channels, first_block=False):
     blk = []
     for i in range(num_residuals):
@@ -62,7 +85,7 @@ def block(self, num_residuals, num_channels, first_block=False):
             blk.append(Residual(num_channels))
     return nn.Sequential(*blk)
 
-@d2l.add_to_class(ResNet)
+@core.add_to_class(ResNet)
 def __init__(self, arch, lr=0.1, num_classes=10):
     super(ResNet, self).__init__()
     self.save_hyperparameters()
@@ -72,7 +95,7 @@ def __init__(self, arch, lr=0.1, num_classes=10):
     self.net.add_module('last', nn.Sequential(
         nn.AdaptiveAvgPool2d((1, 1)), nn.Flatten(),
         nn.LazyLinear(num_classes)))
-    self.net.apply(d2l.init_cnn)
+    self.net.apply(core.init_cnn)
 
 class ResNet18(ResNet):
     def __init__(self, lr=0.1, num_classes=10):
@@ -87,7 +110,7 @@ ResNet18().layer_summary((1, 1, 96, 96))
 training
 """
 model = ResNet18(lr=0.01)
-trainer = d2l.Trainer(max_epochs=10, num_gpus=1)
-data = d2l.FashionMNIST(batch_size=128, resize=(96, 96))
-model.apply_init([next(iter(data.get_dataloader(True)))[0]], d2l.init_cnn)
+trainer = core.Trainer_GPU(max_epochs=10, num_gpus=1)
+data = core.FashionMNIST(batch_size=128, resize=(96, 96))
+model.apply_init([next(iter(data.get_dataloader(True)))[0]], core.init_cnn)
 trainer.fit(model, data)

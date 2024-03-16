@@ -1,9 +1,19 @@
+"""
+GoogLeNet
+
+GoogLeNet结合了NiN结构的优点；同时它将数据社区(stem),数据处理(body)和预测(head)分开的网络
+
+他讲多个优点结合，将Input使用不同网络结构提取特征，再将特征融合，形成了Inception块。
+
+在这里最重要的地方在于引入了特征融合，在特征融合的时候我们使用`torch.cat((b1, b2, b3, b4), dim=1)`将多个特征拼起来，
+特征融合时候，我们往往会指定拼接的维度，一般指定拼接维度为channel, Torch数据组织格式(batch_size, channel, stack, height, width)。
+"""
 
 """在channel方向上增加了特征融合的网络"""
 import torch
 from torch import nn
 from torch.nn import functional as F
-from d2l import torch as d2l
+import core
 
 
 """
@@ -33,26 +43,26 @@ class Inception(nn.Module):
         b4 = F.relu(self.b4_2(self.b4_1(x)))
         return torch.cat((b1, b2, b3, b4), dim=1)
     
-class GoogleNet(d2l.Classifier):
+class GoogleNet(core.Classifier):
     def b1(self):
         return nn.Sequential(
             nn.LazyConv2d(64, kernel_size=7, stride=2, padding=3),
             nn.ReLU(), nn.MaxPool2d(kernel_size=3, stride=2, padding=1))
     
-@d2l.add_to_class(GoogleNet)
+@core.add_to_class(GoogleNet)
 def b2(self):
     return nn.Sequential(
         nn.LazyConv2d(64, kernel_size=1), nn.ReLU(),
         nn.LazyConv2d(192, kernel_size=3, padding=1), nn.ReLU(),
         nn.MaxPool2d(kernel_size=3, stride=2, padding=1))
 
-@d2l.add_to_class(GoogleNet)
+@core.add_to_class(GoogleNet)
 def b3(self):
     return nn.Sequential(Inception(64, (96, 128), (16, 32), 32),
                          Inception(128, (128, 192), (32, 96), 64),
                          nn.MaxPool2d(kernel_size=3, stride=2, padding=1))
 
-@d2l.add_to_class(GoogleNet)
+@core.add_to_class(GoogleNet)
 def b4(self):
     return nn.Sequential(Inception(192, (96, 208), (16, 48), 64),
                          Inception(160, (112, 224), (24, 64), 64),
@@ -61,19 +71,19 @@ def b4(self):
                          Inception(256, (160, 320), (32, 128), 128),
                          nn.MaxPool2d(kernel_size=3, stride=2, padding=1))
 
-@d2l.add_to_class(GoogleNet)
+@core.add_to_class(GoogleNet)
 def b5(self):
     return nn.Sequential(Inception(256, (160, 320), (32, 128), 128),
                          Inception(384, (192, 384), (48, 128), 128),
                          nn.AdaptiveAvgPool2d((1,1)), nn.Flatten())
 
-@d2l.add_to_class(GoogleNet)
+@core.add_to_class(GoogleNet)
 def __init__(self, lr=0.1, num_classes=10):
     super(GoogleNet, self).__init__()
     self.save_hyperparameters()
     self.net = nn.Sequential(self.b1(), self.b2(), self.b3(), self.b4(),
                              self.b5(), nn.LazyLinear(num_classes))
-    self.net.apply(d2l.init_cnn)
+    self.net.apply(core.init_cnn)
 
 model = GoogleNet().layer_summary((1, 1, 96, 96))
 
@@ -83,7 +93,7 @@ model = GoogleNet().layer_summary((1, 1, 96, 96))
 training
 """
 model = GoogleNet(lr=0.01)
-trainer = d2l.Trainer(max_epochs=10, num_gpus=1)
-data = d2l.FashionMNIST(batch_size=128, resize=(96, 96))
-model.apply_init([next(iter(data.get_dataloader(True)))[0]], d2l.init_cnn)
+trainer = core.Trainer_GPU(max_epochs=10, num_gpus=1)
+data = core.FashionMNIST(batch_size=128, resize=(96, 96))
+model.apply_init([next(iter(data.get_dataloader(True)))[0]], core.init_cnn)
 trainer.fit(model, data)

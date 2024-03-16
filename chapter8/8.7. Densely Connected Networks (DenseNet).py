@@ -1,8 +1,11 @@
-
-
+"""
+DenseNet
+DenseNet和ResNet最大的区别在于ResNet使用了加法，而DenseNet使用了cat连接; 
+但是我们能够注意到使用连接会导致channel一直增大，所以在将chennel增加后我们需要使用1*1卷积块来降低模型复杂性;
+"""
 import torch
 from torch import nn
-from d2l import torch as d2l
+import core
 
 
 """
@@ -53,14 +56,14 @@ print(blk(Y).shape)
 
 DenseNet
 """
-class DenseNet(d2l.Classifier):
+class DenseNet(core.Classifier):
     def b1(self):
         return nn.Sequential(
             nn.LazyConv2d(64, kernel_size=7, stride=2, padding=3),
             nn.LazyBatchNorm2d(), nn.ReLU(),
             nn.MaxPool2d(kernel_size=3, stride=2, padding=1))
 
-@d2l.add_to_class(DenseNet)
+@core.add_to_class(DenseNet)
 def __init__(self, num_channels=64, growth_rate=32, arch=(4, 4, 4, 4),
              lr=0.1, num_classes=10):
     super(DenseNet, self).__init__()
@@ -81,7 +84,7 @@ def __init__(self, num_channels=64, growth_rate=32, arch=(4, 4, 4, 4),
         nn.LazyBatchNorm2d(), nn.ReLU(),
         nn.AdaptiveAvgPool2d((1, 1)), nn.Flatten(),
         nn.LazyLinear(num_classes)))
-    self.net.apply(d2l.init_cnn)
+    self.net.apply(core.init_cnn)
 
 
 """
@@ -89,7 +92,7 @@ def __init__(self, num_channels=64, growth_rate=32, arch=(4, 4, 4, 4),
 training
 """
 model = DenseNet(lr=0.01)
-trainer = d2l.Trainer(max_epochs=10, num_gpus=1)
-data = d2l.FashionMNIST(batch_size=128, resize=(96, 96))
+trainer = core.Trainer_GPU(max_epochs=10, num_gpus=1)
+data = core.FashionMNIST(batch_size=128, resize=(96, 96))
 trainer.fit(model, data)
 
